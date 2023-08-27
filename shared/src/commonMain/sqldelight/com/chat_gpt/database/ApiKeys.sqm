@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS Keys (
+  key TEXT NOT NULL,
+  modelGpt Text NOT NULL
+);

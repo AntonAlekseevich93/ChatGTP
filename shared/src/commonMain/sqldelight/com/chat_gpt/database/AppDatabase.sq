@@ -1,0 +1,49 @@
+CREATE TABLE Messages (
+    message TEXT NOT NULL,
+    isUser INTEGER NOT NULL
+);
+
+CREATE TABLE Keys (
+    key TEXT NOT NULL,
+    modelGpt Text NOT NULL
+);
+
+CREATE TABLE Settings (
+  themeId INTEGER NOT NULL
+);
+
+insertMessage:
+INSERT INTO Messages(message, isUser)
+VALUES(? , ?);
+
+removeAllMessages:
+DELETE FROM Messages;
+
+selectAllMessagesInfo:
+SELECT *
+FROM Messages;
+
+insertKey:
+INSERT INTO Keys(key, modelGpt)
+VALUES(? , ?);
+
+removeAllKeys:
+DELETE FROM Keys;
+
+selectAllKeysInfo:
+SELECT *
+FROM Keys;
+
+insertThemeId:
+INSERT INTO Settings(themeId)
+VALUES(?);
+
+removeAllSettings:
+DELETE FROM Settings;
+
+selectAllSettings:
+SELECT *
+FROM Settings;
+
+
+
