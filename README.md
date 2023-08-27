@@ -6,15 +6,12 @@ Can be run on platforms: Android, iOS, Desktop
 
 ### This is how the UI looks like
 
-Desktop:
+# Desktop:
+![Desktop](readme_images/desktop.png)
 
-[//]: # (![Desktop]&#40;https://raw.githubusercontent.com/AntonAlekseevich93/chatGPT/main/readme_images/desktop.png&#41;)
+# Android:
+<img src="https://github.com/AntonAlekseevich93/ChatGTP/blob/main/readme_images/android.png" width="300">
 
-Android:
-
-[//]: # (<img src="https://raw.githubusercontent.com/AntonAlekseevich93/chatGPT/main/readme_images/android.png" alt="Android" height="600">)
-
-iOS:
-
-[//]: # (<img src="https://raw.githubusercontent.com/AntonAlekseevich93/chatGPT/main/readme_images/ios-1.png" alt="iOS" height="600">)
-[//]: # (<img src="https://raw.githubusercontent.com/AntonAlekseevich93/chatGPT/main/readme_images/ios-2.png" alt="iOS" height="600">)
+# iOS:
+<img src="https://github.com/AntonAlekseevich93/ChatGTP/blob/main/readme_images/ios-2.png" width="300">
+<img src="https://github.com/AntonAlekseevich93/ChatGTP/blob/main/readme_images/ios-1.png" width="300">
