@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import data.MessageVo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -30,7 +31,7 @@ import themes.ApplicationTheme
 
 @OptIn(ExperimentalResourceApi::class)
 @Composable
-fun GptCopyBlock(messageText: String) {
+fun GptCopyBlock(message: MessageVo) {
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val showCopiedInfo = remember { mutableStateOf(false) }
@@ -42,10 +43,11 @@ fun GptCopyBlock(messageText: String) {
             colorFilter = ColorFilter.tint(ApplicationTheme.colors.logoAiTintColor)
         )
         Text("ChatGPT", color = ApplicationTheme.colors.mainTextColor)
-        Icon(imageVector = Icons.Default.ContentCopy,
-            null,
+        Icon(
+            imageVector = Icons.Default.ContentCopy,
+            contentDescription = null,
             modifier = Modifier.padding(start = 8.dp).size(16.dp).clickable {
-                clipboardManager.setText(AnnotatedString(messageText))
+                clipboardManager.setText(AnnotatedString(message.content))
                 scope.launch {
                     showCopiedInfo.value = true
                     delay(1000L)

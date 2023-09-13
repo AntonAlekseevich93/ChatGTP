@@ -19,7 +19,7 @@ interface MarkdownPadding {
 @Composable
 fun markdownPadding(
     block: Dp = 0.dp,
-    list: Dp = 0.dp,
+    list: Dp = 4.dp,
     indentList: Dp = 0.dp
 ): MarkdownPadding = DefaultMarkdownPadding(
     block = block,

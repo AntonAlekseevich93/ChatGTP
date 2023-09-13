@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import markdown.handler.handleElement
 import markdown.linkhandler.LocalReferenceLinkHandler
 import markdown.linkhandler.ReferenceLinkHandlerImpl
+import markdown.theme.CustomColor
 import markdown.theme.LocalMarkdownColors
 import markdown.theme.LocalMarkdownPadding
 import markdown.theme.LocalMarkdownTypography
@@ -26,6 +27,7 @@ import org.intellij.markdown.parser.MarkdownParser
 fun Markdown(
     content: String,
     colors: MarkdownColors = markdownColor(),
+    customColor: CustomColor? = null,
     typography: MarkdownTypography = markdownTypography(),
     padding: MarkdownPadding = markdownPadding(),
     modifier: Modifier = Modifier.padding(16.dp),
@@ -40,9 +42,9 @@ fun Markdown(
         Column(modifier) {
             val parsedTree = MarkdownParser(flavour).buildMarkdownTreeFromString(content)
             parsedTree.children.forEach { node ->
-                if (!node.handleElement(content)) {
+                if (!node.handleElement(content, customColor)) {
                     node.children.forEach { child ->
-                        child.handleElement(content)
+                        child.handleElement(content, customColor)
                     }
                 }
             }

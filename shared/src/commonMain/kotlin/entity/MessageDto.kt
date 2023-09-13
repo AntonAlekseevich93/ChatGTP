@@ -9,4 +9,12 @@ data class MessageDto(
     val message: String,
     @SerialName("isUser")
     val messageType: Long,
+    @SerialName("messageId")
+    val messageId: Long,
+    @SerialName("parentMessageId")
+    val parentMessageId: Long?,
+    @SerialName("parentMessageText")
+    val parentMessageText: String?,
+    @SerialName("childMessageId")
+    val childMessageId: Long?,
 )

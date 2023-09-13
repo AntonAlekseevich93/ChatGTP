@@ -2,6 +2,7 @@ package repository
 
 import data.MessageVo
 import data.toDto
+import data.toVo
 import database.SqlDelightDataSource
 
 class Repository(
@@ -11,7 +12,8 @@ class Repository(
         dataSource.insertMessage(message.toDto())
     }
 
-    suspend fun getAllMessagesFromDb() = dataSource.getAllMessages()
+    suspend fun getMessagesFromIdToId(fromId: Long, toId: Long) =
+        dataSource.getMessagesFromIdToId(fromId, toId).map { it.toVo() }
 
     suspend fun saveAuthorizationKey(key: String, modelGpt: String) {
         dataSource.saveAuthorizationKey(key, modelGpt)
@@ -31,7 +33,15 @@ class Repository(
         dataSource.saveSelectedTheme(themeId.toLong())
     }
 
+    suspend fun updateChildIdForParentMessage(
+        childMessageId: Long,
+        parentMessageId: Long
+    ) {
+        dataSource.updateChildIdForParentMessage(childMessageId, parentMessageId)
+    }
+
     suspend fun getSelectedThemeIdOrDefault(): Int? =
         dataSource.getSelectedThemeIdOrDefault()?.toInt()
 
+    suspend fun getLastMessageId() = dataSource.getLastMessageId()
 }

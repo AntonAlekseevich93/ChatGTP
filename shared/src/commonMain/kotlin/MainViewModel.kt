@@ -1,24 +1,22 @@
 import androidx.compose.runtime.Stable
+import com.aallam.openai.api.BetaOpenAI
+import com.aallam.openai.api.chat.ChatCompletion
+import com.aallam.openai.api.chat.ChatCompletionRequest
+import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatRole
+import com.aallam.openai.api.http.Timeout
+import com.aallam.openai.api.model.Model
+import com.aallam.openai.api.model.ModelId
+import com.aallam.openai.client.OpenAI
 import composables.messages.MessageType
 import data.AppScreenState
-import data.BodyDto
 import data.ConversationUiState
 import data.MessageVo
-import data.MessagesDto
-import data.ResponseDto
 import data.exampleUiState
 import di.Inject.instance
 import io.ktor.client.*
-import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.retry
-import io.ktor.client.plugins.timeout
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +28,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import repository.Repository
 import themes.AppTheme
+import ui_state.CommonUiState
+import ui_state.QuoteDataUiState
+import kotlin.time.Duration.Companion.seconds
 
 @Stable
 class MainViewModel() {
@@ -38,6 +39,19 @@ class MainViewModel() {
     private var authorizationKey: String = ""
     private var selectedThemeFromStorage = AppTheme.LIGHT
     private val _keyList: MutableStateFlow<MutableList<String>> = MutableStateFlow(mutableListOf())
+    private val modelId = ModelId(MODEL_GPT)
+    private var openAI: OpenAI? = null
+    private var gptModel: Model? = null
+    private val defaultQuoteData = QuoteDataUiState(
+        showingQuote = false,
+        parentMessage = "",
+        parentMessagePosition = -1
+    )
+    private var lastCreatedMessageID = DEFAULT_MESSAGE_ID
+    private var messagesMapForBranches: MutableMap<Long, MessageVo> = mutableMapOf()
+    private var errorMessage: MessageVo? = null
+    private var isLoadingMessagesFromDb = false
+    val commonUiState: CommonUiState = CommonUiState()
     val keyList: StateFlow<List<String>> = _keyList
 
     init {
@@ -77,11 +91,12 @@ class MainViewModel() {
     val themeMode: StateFlow<AppTheme> = _themeMode
 
     init {
-        getMessages()
+        getLastMessagesIfExist()
     }
 
     fun logIn(key: String) {
         if (key.isNotEmpty() && key.isNotBlank()) {
+            initializeOpenAi(key)
             scope.launch {
                 repository.saveAuthorizationKey(key = key, modelGpt = MODEL_GPT)
             }
@@ -108,22 +123,67 @@ class MainViewModel() {
     }
 
     fun sendMessage(message: String) {
-        _waitingForResponseState.value = true
-        val messageVo = MessageVo(
-            messageType = MessageType.USER,
-            content = message
-        )
-        _conversationUiState.value.addMessage(messageVo)
-        scope.launch {
-//            launch {
-//                delay(2000L)
-//                sendRequestTesting()
-//            }
-            launch {
-                repository.insertMessageToDb(messageVo)
-            }
-            sendRequest(message)
+        if (openAI != null && gptModel != null) {
+            _waitingForResponseState.value = true
+            val messageVo = MessageVo(
+                id = getNewMessageId(),
+                messageType = MessageType.USER,
+                content = message
+            )
+            _conversationUiState.value.addMessageToBeginningOfList(messageVo)
 
+            scope.launch {
+                launch {
+                    repository.insertMessageToDb(messageVo)
+                }
+                sendGptRequest(message)
+                messagesMapForBranches[messageVo.id] = messageVo
+            }
+        } else if (errorMessage != null) {
+            _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
+        } else {
+            _conversationUiState.value.addMessageToBeginningOfList(
+                MessageVo(
+                    id = DEFAULT_MESSAGE_ID,
+                    messageType = MessageType.SYSTEM,
+                    content = "Что-то пошло не так!\nПроверьте подключение к интернету и повторите попытку."
+                )
+            )
+        }
+    }
+
+    fun sendMessageWithQuote(message: String, parentMessageId: Long) {
+        if (openAI != null && gptModel != null) {
+            closeQuote()
+            _waitingForResponseState.value = true
+            val childMessageId = getNewMessageId()
+            val parentMessage =
+                _conversationUiState.value.messages.find { it.id == parentMessageId }
+            val messageVo = MessageVo(
+                id = childMessageId,
+                messageType = MessageType.USER,
+                content = message,
+                parentMessageId = parentMessageId,
+                parentMessageText = parentMessage?.content
+            )
+            _conversationUiState.value.addMessageToBeginningOfList(messageVo)
+            scope.launch {
+                launch {
+                    repository.insertMessageToDb(messageVo)
+                    updateChildIdForParentMessage(
+                        childMessageId = childMessageId,
+                        parentMessageId = parentMessageId
+                    )
+
+                }
+                sendGptRequest(
+                    messageRequest = message,
+                    parentMessageId = childMessageId
+                )
+                messagesMapForBranches[messageVo.id] = messageVo
+            }
+        } else if (errorMessage != null) {
+            _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
         }
     }
 
@@ -135,76 +195,169 @@ class MainViewModel() {
         }
     }
 
-    private suspend fun sendRequestTesting() {
-        _conversationUiState.value.addMessage(
-            MessageVo(
-                messageType = MessageType.GPT,
-                content = "Ответ чата GPt",
-            )
-        )
-        _waitingForResponseState.value = false
-        sendNotification(message = "I'm sorry for the misunderstanding, but as an AI text-based model developed by OpenAI")
+    fun closeQuote() {
+        commonUiState.quoteDataUiState.value = defaultQuoteData
     }
 
-    private suspend fun sendRequest(messageRequest: String) {
-        val httpResponse = httpClient
-            .post("https://api.openai.com/v1/chat/completions") {
-                timeout {
-                    requestTimeoutMillis = 60000
-                }
-                url {
-                    contentType(ContentType.Application.Json)
-                    parameters.append("model", "gpt-4")
-                    retry {
-                        retryOnException(retryOnTimeout = true, maxRetries = 10)
-                    }
-                    header(
-                        "Authorization",
-                        "Bearer $authorizationKey"
-                    )
-                    setBody(
-                        BodyDto(
-                            model = MODEL_GPT,
-                            messages = listOf(
-                                MessagesDto(
-                                    role = USER_ROLE,
-                                    content = messageRequest
-                                )
-                            )
-                        )
-                    )
-                }
-            }.body<ResponseDto>()
+    fun showQuote(message: String, position: Int, parentMessageId: Long) {
+        commonUiState.quoteDataUiState.value = QuoteDataUiState(
+            showingQuote = true,
+            parentMessage = message,
+            parentMessagePosition = position,
+            parentMessageId = parentMessageId
+        )
+    }
 
-        if (httpResponse.error?.message != null && httpResponse.error.message.isNotEmpty()) {
-            val message = MessageVo(
-                messageType = MessageType.SYSTEM,
-                content = httpResponse.error.message
-            )
-            _conversationUiState.value.addMessage(message)
-            _waitingForResponseState.value = false
-            sendNotification(message = httpResponse.error.message)
-        } else {
-            httpResponse.choices?.forEach {
-                it.message?.content?.let { content ->
-                    val message = MessageVo(
-                        messageType = MessageType.GPT,
-                        content = content,
-                    )
-                    _conversationUiState.value.addMessage(message)
-                    _waitingForResponseState.value = false
-                    repository.insertMessageToDb(message)
-                    sendNotification(message = content)
+    fun openMessagesBranch(childMessageId: Long) {
+        val messagesBranch = mutableMapOf<Long, MessageVo>()
+        var searchingKey: Long? = childMessageId
+        val parentMessage: MessageVo? = getMessageForBranch(
+            getMessageForBranch(childMessageId)?.parentMessageId
+        )
+        var lastFoundMessageId = searchingKey
+
+        //sampling up
+        while (searchingKey != null) {
+            val message = getMessageForBranch(searchingKey)
+            if (message != null) {
+                messagesBranch[searchingKey] = message
+                searchingKey = message.parentMessageId
+                lastFoundMessageId = message.id
+            } else {
+                searchingKey = null
+            }
+        }
+
+        /**
+         * This is a temporary solution to how to show the very first message from the thread.
+         * If we change the logic of working with the message ID, this code will break
+         */
+        val mainParentMessage = getMessageForBranch(lastFoundMessageId?.minus(1))
+        if (mainParentMessage != null) {
+            messagesBranch[mainParentMessage.id] = mainParentMessage
+        }
+
+        searchingKey = parentMessage?.childMessageId
+
+        //sampling down
+        while (searchingKey != null) {
+            val message = getMessageForBranch(searchingKey)
+            if (message != null) {
+                messagesBranch[searchingKey] = message
+                searchingKey = message.childMessageId
+            } else {
+                searchingKey = null
+            }
+        }
+        _conversationUiState.value.apply {
+            updateQuoteMessagesBranch(messagesBranch.values.sortedByDescending { it.id })
+            openQuoteMessagesBranch(clickedMessageId = childMessageId)
+        }
+    }
+
+    fun closeMessagesThread() {
+        _conversationUiState.value.closeQuoteMessagesBranch()
+    }
+
+    fun uploadData() {
+        if (!isLoadingMessagesFromDb) {
+            isLoadingMessagesFromDb = true
+            scope.launch {
+                val lastItem =
+                    _conversationUiState.value.messages.last { it.messageType != MessageType.SYSTEM }
+                if (lastItem.id != FIRST_MESSAGE_ID) {
+                    val messages =
+                        repository.getMessagesFromIdToId(
+                            fromId = lastItem.id - SHIFT_ID_BY_ONE,
+                            toId = lastItem.id - MESSAGES_ID_OFFSET
+                        ).reversed()
+                    messages.forEach { message ->
+                        withContext(this.coroutineContext) {
+                            _conversationUiState.value.addMessage(message)
+                        }
+                        messagesMapForBranches[message.id] = message
+                    }
+                    isLoadingMessagesFromDb = false
                 }
             }
         }
     }
 
-    private fun getMessages() {
+    private fun getMessageForBranch(messageId: Long?): MessageVo? {
+        return if (messageId != null && messagesMapForBranches.containsKey(messageId)) messagesMapForBranches[messageId]
+        else null
+    }
+
+    @OptIn(BetaOpenAI::class)
+    private suspend fun sendGptRequest(
+        messageRequest: String,
+        parentMessageId: Long? = null,
+    ) {
+        openAI?.let { openAI ->
+            val chatCompletionRequest = ChatCompletionRequest(
+                model = modelId,
+                messages = listOf(
+                    ChatMessage(
+                        role = ChatRole.User,
+                        content = messageRequest
+                    )
+                )
+            )
+
+            //todo здесь нужно отправлять не один запрос а пачку messages если parentMessageId not null
+            try {
+                val completion: ChatCompletion = openAI.chatCompletion(chatCompletionRequest)
+                completion.choices.forEach { chatChoice ->
+                    chatChoice.message?.content?.let { content ->
+                        val gptMessageId = getNewMessageId()
+                        val message = MessageVo(
+                            id = gptMessageId,
+                            messageType = MessageType.GPT,
+                            content = content,
+                            parentMessageId = parentMessageId,
+                            parentMessageText = if (parentMessageId != null) messageRequest else null
+                        )
+                        _conversationUiState.value.addMessageToBeginningOfList(message)
+                        repository.insertMessageToDb(message)
+                        sendNotification(message = content)
+                        messagesMapForBranches[message.id] = message
+                        if (parentMessageId != null) {
+                            updateChildIdForParentMessage(
+                                childMessageId = gptMessageId,
+                                parentMessageId = parentMessageId
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                errorMessage = MessageVo(
+                    id = -1,
+                    messageType = MessageType.SYSTEM,
+                    content = "ОШИБКА: ${e.message}"
+                )
+                _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
+            }
+            _waitingForResponseState.value = false
+
+
+        }
+    }
+
+    private fun getLastMessagesIfExist() {
         scope.launch {
-            repository.getAllMessagesFromDb().forEach {
-                withContext(this.coroutineContext) {
-                    _conversationUiState.value.addMessage(it)
+            repository.getLastMessageId()?.let { lastMessageId ->
+                val messages = repository.getMessagesFromIdToId(
+                    fromId = lastMessageId,
+                    toId = lastMessageId - MESSAGES_ID_OFFSET
+                )
+                if (messages.isNotEmpty()) {
+                    lastCreatedMessageID = messages.last().id
+                }
+                messages.forEach { message ->
+                    withContext(this.coroutineContext) {
+                        _conversationUiState.value.addMessageToBeginningOfList(message)
+                    }
+                    messagesMapForBranches[message.id] = message
                 }
             }
         }
@@ -214,6 +367,7 @@ class MainViewModel() {
         scope.launch {
             val key = repository.getLastAuthorizationKeyFromDb()
             if (key.isNotEmpty()) {
+                initializeOpenAi(key)
                 authorizationKey = key
                 _keyList.value = mutableListOf(key)
             }
@@ -243,9 +397,47 @@ class MainViewModel() {
         }
     }
 
+    private fun initializeOpenAi(apiKey: String) {
+        scope.launch {
+            try {
+                openAI = OpenAI(
+                    token = apiKey,
+                    timeout = Timeout(socket = 60.seconds)
+                )
+                gptModel = openAI?.model(modelId)
+            } catch (e: Exception) {
+                errorMessage = MessageVo(
+                    id = DEFAULT_MESSAGE_ID,
+                    messageType = MessageType.SYSTEM,
+                    content = "ОШИБКА: ${e.message}"
+                )
+                _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
+            }
+        }
+    }
+
+    private suspend fun updateChildIdForParentMessage(childMessageId: Long, parentMessageId: Long) {
+        repository.updateChildIdForParentMessage(
+            childMessageId = childMessageId,
+            parentMessageId = parentMessageId
+        )
+        _conversationUiState.value.updateChildIdForParentMessage(
+            childMessageId = childMessageId,
+            parentMessageId = parentMessageId
+        )
+    }
+
+    private fun getNewMessageId(): Long {
+        lastCreatedMessageID += 1
+        return lastCreatedMessageID
+    }
+
     companion object {
         private const val MODEL_GPT = "gpt-4"
-        private const val USER_ROLE = "user"
+        private const val FIRST_MESSAGE_ID = 0L
+        private const val SHIFT_ID_BY_ONE = 1L
+        private const val MESSAGES_ID_OFFSET = 15L
+        const val DEFAULT_MESSAGE_ID = -1L
     }
 }
 

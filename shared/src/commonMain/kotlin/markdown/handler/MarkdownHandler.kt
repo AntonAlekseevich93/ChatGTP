@@ -1,9 +1,14 @@
 package markdown.handler
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import markdown.elements.MarkdownBulletList
 import markdown.elements.MarkdownCodeFence
+import markdown.elements.MarkdownOrderedList
 import markdown.elements.MarkdownParagraph
 import markdown.elements.MarkdownText
+import markdown.theme.CustomColor
 import markdown.theme.LocalMarkdownTypography
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
@@ -11,19 +16,31 @@ import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
 
 @Composable
-internal fun ASTNode.handleElement(content: String): Boolean {
+internal fun ASTNode.handleElement(
+    content: String,
+    customColor: CustomColor? = null,
+): Boolean {
     val typography = LocalMarkdownTypography.current
     var handled = true
-//    Spacer(Modifier.height(LocalMarkdownPadding.current.block))
     when (type) {
-        MarkdownTokenTypes.TEXT -> MarkdownText(getTextInNode(content).toString())
-        MarkdownTokenTypes.EOL -> {
-//            MarkdownText(getTextInNode(content).toString())
+        MarkdownTokenTypes.TEXT -> {
+            MarkdownText(getTextInNode(content).toString())
         }
+
+        MarkdownTokenTypes.EOL -> {}
+////            MarkdownText(getTextInNode(content).toString())
+//        }
 //        MarkdownElementTypes.CODE_BLOCK -> MarkdownCodeBlock(content, this)
-        MarkdownElementTypes.CODE_FENCE -> MarkdownCodeFence(content, node = this)
+//        MarkdownElementTypes.CODE_BLOCK -> { println("CODE BLOCK ${getTextInNode(content)}")}
+        MarkdownElementTypes.CODE_FENCE -> {
+            MarkdownCodeFence(
+                content = content,
+                node = this,
+                customColor = customColor
+            )
+        }
 //        MarkdownElementTypes.ATX_1 -> MarkdownHeader(content, this, typography.h1)
-//        MarkdownTokenTypes.LPAREN ->
+//        MarkdownTokenTypes.LPAREN -> { println("LPAREN ${getTextInNode(content)}")}
 //        MarkdownElementTypes.ATX_2 -> MarkdownHeader(content, this, typography.h2)
 
 //        MarkdownElementTypes.ATX_3 -> MarkdownHeader(content, this, typography.h3)
@@ -35,18 +52,27 @@ internal fun ASTNode.handleElement(content: String): Boolean {
 //        MarkdownElementTypes.ATX_6 -> MarkdownHeader(content, this, typography.h6)
 
 //        MarkdownElementTypes.BLOCK_QUOTE -> MarkdownBlockQuote(content, this)
-        MarkdownElementTypes.PARAGRAPH -> MarkdownParagraph(
-            content,
-            this,
-            style = typography.paragraph,
-        )
-//        MarkdownElementTypes.ORDERED_LIST -> Column(modifier = Modifier) {
-//            MarkdownOrderedList(content, this@handleElement, style = typography.ordered)
+//        MarkdownElementTypes.BLOCK_QUOTE -> {
+//            println("QUOTE ${getTextInNode(content)}")
 //        }
+        MarkdownElementTypes.PARAGRAPH -> {
+            MarkdownParagraph(
+                content = content,
+                node = this,
+                style = typography.paragraph,
+            )
+        }
+
+        MarkdownElementTypes.ORDERED_LIST -> Column(modifier = Modifier) {
+            MarkdownOrderedList(content, this@handleElement, style = typography.ordered)
+        }
+
+//        MarkdownElementTypes.ORDERED_LIST -> {println("ORDERED LIST ${getTextInNode(content)}")}
+//        MarkdownElementTypes.UNORDERED_LIST -> {println("UNORDERED_LIST ${getTextInNode(content)}")}
 //
-//        MarkdownElementTypes.UNORDERED_LIST -> Column(modifier = Modifier) {
-//            MarkdownBulletList(content, this@handleElement, style = typography.bullet)
-//        }
+        MarkdownElementTypes.UNORDERED_LIST -> Column(modifier = Modifier) {
+            MarkdownBulletList(content, this@handleElement, style = typography.bullet)
+        }
 //
 //        MarkdownElementTypes.IMAGE -> MarkdownImage(content, this)
 //        MarkdownElementTypes.LINK_DEFINITION -> {
@@ -56,14 +82,24 @@ internal fun ASTNode.handleElement(content: String): Boolean {
 //                LocalReferenceLinkHandler.current.store(linkLabel, destination)
 //            }
 //    }
+//        MarkdownElementTypes.HTML_BLOCK -> {
+//            println("ПОПАЛИ")
+//          val text =  getTextInNode(content).forEach {
+//              Text(text = it.toString(), color = Color.Red)
+//          }
+////
+//        }
 
 
-//        else -> MarkdownText(getTextInNode(content).toString())
 //        else -> {
-////            println("type = == $type")
 //            MarkdownText(getTextInNode(content).toString())
 //        }
-        else -> handled = false
+//
+        else -> {
+            MarkdownText(getTextInNode(content).toString())
+        }
+
+//        else -> handled = false
     }
     return handled
 }

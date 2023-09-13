@@ -1,6 +1,10 @@
 CREATE TABLE Messages (
     message TEXT NOT NULL,
-    isUser INTEGER NOT NULL
+    messageId INTEGER NOT NULL,
+    isUser INTEGER NOT NULL,
+    parentMessageId INTEGER,
+    parentMessageText TEXT,
+    childMessageId INTEGER
 );
 
 CREATE TABLE Keys (
@@ -13,8 +17,8 @@ CREATE TABLE Settings (
 );
 
 insertMessage:
-INSERT INTO Messages(message, isUser)
-VALUES(? , ?);
+INSERT INTO Messages(message, messageId, isUser, parentMessageId, parentMessageText, childMessageId)
+VALUES(? , ?, ?, ?, ?,?);
 
 removeAllMessages:
 DELETE FROM Messages;
@@ -22,6 +26,10 @@ DELETE FROM Messages;
 selectAllMessagesInfo:
 SELECT *
 FROM Messages;
+
+updateChildIdForParentMessage:
+UPDATE Messages
+SET `childMessageId`=? WHERE messageId=?;
 
 insertKey:
 INSERT INTO Keys(key, modelGpt)
@@ -45,5 +53,15 @@ selectAllSettings:
 SELECT *
 FROM Settings;
 
+keyedQuery:
+SELECT * FROM Messages
+WHERE messageId >= :beginInclusive AND (messageId <= :endExclusive OR :endExclusive IS NULL)
+ORDER BY messageId ASC;
 
+selectMessagesPage:
+SELECT * FROM Messages
+WHERE messageId <= :endExclusive AND (messageId >= :beginInclusive OR :beginInclusive IS NULL)
+ORDER BY messageId ASC;
 
+lastMessageId:
+SELECT * FROM Messages ORDER BY messageId DESC LIMIT 1;

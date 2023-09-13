@@ -1,11 +1,9 @@
-import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import composables.MainScreen
 import themes.AppTheme
-import themes.ApplicationTheme
 
 @Composable
 @Suppress("FunctionName")

@@ -11,5 +11,7 @@ internal fun MarkdownCodeBlock(
 ) {
     val start = node.children[0].startOffset
     val end = node.children[node.children.size - 1].endOffset
-    MarkdownCode(content.subSequence(start, end).toString().replaceIndent())
+    MarkdownCode(
+        code = content.subSequence(start, end).toString().replaceIndent(),
+    )
 }

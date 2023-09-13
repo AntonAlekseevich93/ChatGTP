@@ -1,6 +1,7 @@
 package themes
 
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -25,6 +26,7 @@ data class AppTypography(
     val buttonBold: TextStyle,
     val buttonSmall: TextStyle,
     val footnoteRegular: TextStyle,
+    val footnoteRegularItalic: TextStyle,
     val footnoteMedium: TextStyle,
     val footnoteBold: TextStyle,
     val captionRegular: TextStyle,
@@ -144,6 +146,13 @@ val ottTypography = AppTypography(
     buttonSmall = TextStyle(
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
+        letterSpacing = 0.4.sp,
+        lineHeight = 16.sp,
+    ),
+    footnoteRegularItalic = TextStyle(
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Normal,
+        fontStyle = FontStyle.Italic,
         letterSpacing = 0.4.sp,
         lineHeight = 16.sp,
     ),

@@ -1,7 +1,6 @@
 package database
 
-import composables.messages.MessageType
-import data.MessageVo
+import com.chatgpt.database.Messages
 import entity.MessageDto
 import sqldelight.com.chat_gpt.database.AppDatabase
 
@@ -15,15 +14,17 @@ class SqlDelightDataSource(dbDriverFactory: DbDriverFactory) {
     suspend fun insertMessage(messageDbDto: MessageDto) {
         dbQuery.insertMessage(
             message = messageDbDto.message,
-            isUser = messageDbDto.messageType
+            messageId = messageDbDto.messageId,
+            isUser = messageDbDto.messageType,
+            parentMessageId = messageDbDto.parentMessageId,
+            parentMessageText = messageDbDto.parentMessageText,
+            childMessageId = messageDbDto.childMessageId
         )
     }
 
-    suspend fun getAllMessages() = dbQuery.selectAllMessagesInfo().executeAsList().map {
-        MessageVo(
-            content = it.message,
-            messageType = if (it.isUser == 0L) MessageType.USER else MessageType.GPT
-        )
+    suspend fun getMessagesFromIdToId(fromId: Long, toId: Long): List<Messages> {
+        return dbQuery.selectMessagesPage(endExclusive = fromId, beginInclusive = toId)
+            .executeAsList()
     }
 
     suspend fun saveAuthorizationKey(key: String, modelGpt: String) {
@@ -37,11 +38,22 @@ class SqlDelightDataSource(dbDriverFactory: DbDriverFactory) {
     }
 
     suspend fun saveSelectedTheme(themeId: Long) {
+        dbQuery.removeAllSettings() //todo fix this
         dbQuery.insertThemeId(themeId)
     }
 
     suspend fun getSelectedThemeIdOrDefault(): Long? =
         dbQuery.selectAllSettings().executeAsList().takeIf { it.isNotEmpty() }?.first()
+
+    fun updateChildIdForParentMessage(childMessageId: Long, parentMessageId: Long) {
+        dbQuery.updateChildIdForParentMessage(
+            childMessageId = childMessageId,
+            messageId = parentMessageId
+        )
+    }
+
+    suspend fun getLastMessageId(): Long? =
+        dbQuery.lastMessageId().executeAsOneOrNull()?.messageId
 
     companion object {
         const val USER_TYPE = 0L

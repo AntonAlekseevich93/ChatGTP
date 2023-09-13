@@ -18,6 +18,10 @@ interface MarkdownColors {
     val codeBackground: Color
 }
 
+data class CustomColor(
+    val backgroundCodeColor: Color? = null,
+    val mainBackground: Color? = null,
+)
 
 @Composable
 fun markdownColor(

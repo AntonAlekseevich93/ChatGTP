@@ -31,20 +31,21 @@ import markdown.theme.LocalMarkdownColors
 import markdown.theme.LocalMarkdownTypography
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import markdown.theme.CustomColor
 import themes.ApplicationTheme
 
 @Composable
 internal fun MarkdownCode(
     code: String,
+    customColor: CustomColor? = null,
     style: TextStyle = LocalMarkdownTypography.current.code
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
-    val backgroundCodeColor = LocalMarkdownColors.current.codeBackground
     val showCopiedInfo = remember { mutableStateOf(false) }
 
     Surface(
-        color = backgroundCodeColor,
+        color = customColor?.backgroundCodeColor ?: LocalMarkdownColors.current.codeBackground,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)
     ) {
@@ -61,7 +62,8 @@ internal fun MarkdownCode(
                         fontSize = 12.sp
                     )
                 }
-                Icon(imageVector = Icons.Default.ContentCopy,
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
                     null,
                     modifier = Modifier.padding(end = 8.dp, top = 2.dp).size(16.dp).clickable {
                         clipboardManager.setText(AnnotatedString(code))

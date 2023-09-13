@@ -75,6 +75,7 @@ internal fun AnnotatedString.Builder.buildMarkdownAnnotatedString(
             MarkdownTokenTypes.HARD_LINE_BREAK -> append("\n\n")
             MarkdownTokenTypes.EOL -> append('\n')
             MarkdownTokenTypes.WHITE_SPACE -> append(' ')
+            else -> append(child.getTextInNode(content).toString())
         }
     }
 }

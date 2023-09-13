@@ -28,6 +28,7 @@ import androidx.compose.material.TextField
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,12 +51,15 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import themes.ApplicationTheme
+import ui_state.QuoteDataUiState
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun UserInput(
     onMessageSent: (String) -> Unit,
     modifier: Modifier = Modifier,
+    quoteDataUiState: QuoteDataUiState,
+    closeQuoteListener: () -> Unit,
     resetScroll: () -> Unit = {},
 ) {
     var currentInputSelector by rememberSaveable { mutableStateOf(InputSelector.NONE) }
@@ -63,7 +67,7 @@ fun UserInput(
     var textState by remember { mutableStateOf(TextFieldValue()) }
     // Used to decide if the keyboard should be shown
     var textFieldFocusState by remember { mutableStateOf(false) }
-    Surface(elevation = 2.dp) {
+    Surface(elevation = 0.dp) {
         val actualOnMessageSent = {
             onMessageSent(textState.text.trim())
             // Reset text field and close keyboard
@@ -72,29 +76,35 @@ fun UserInput(
             resetScroll()
             dismissKeyboard()
         }
-        Column(
-            modifier = modifier
-                .background(ApplicationTheme.colors.userInputBackgroundColor)
-        ) {
-            UserInputText(
-                textFieldValue = textState,
-                onTextChanged = { textState = it },
-                // Only show the keyboard if there's no input selector and text field has focus
-                // keyboardShown = currentInputSelector == InputSelector.NONE && textFieldFocusState,
-                // Close extended selector if text field receives focus
-                onTextFieldFocused = { focused ->
-                    if (focused) {
-                        currentInputSelector = InputSelector.NONE
-                        resetScroll()
-                    }
-                    textFieldFocusState = focused
-                },
-                focusState = textFieldFocusState,
-                onMessageSent = actualOnMessageSent
-            )
-            SelectorExpanded(
-                currentSelector = currentInputSelector
-            )
+
+        Column(modifier = Modifier.background(ApplicationTheme.colors.chatBackgroundColor)) {
+            AnimatedVisibility(quoteDataUiState.showingQuote) {
+                QuoteAboveUserInput(quoteDataUiState.parentMessage, closeQuoteListener)
+            }
+            Column(
+                modifier = modifier
+                    .background(ApplicationTheme.colors.userInputBackgroundColor)
+            ) {
+                UserInputText(
+                    textFieldValue = textState,
+                    onTextChanged = { textState = it },
+                    // Only show the keyboard if there's no input selector and text field has focus
+                    // keyboardShown = currentInputSelector == InputSelector.NONE && textFieldFocusState,
+                    // Close extended selector if text field receives focus
+                    onTextFieldFocused = { focused ->
+                        if (focused) {
+                            currentInputSelector = InputSelector.NONE
+                            resetScroll()
+                        }
+                        textFieldFocusState = focused
+                    },
+                    focusState = textFieldFocusState,
+                    onMessageSent = actualOnMessageSent
+                )
+                SelectorExpanded(
+                    currentSelector = currentInputSelector
+                )
+            }
         }
     }
 }
@@ -144,6 +154,7 @@ fun FunctionalityNotAvailablePanel() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalFoundationApi
 @Composable
 private fun UserInputText(
@@ -169,6 +180,20 @@ private fun UserInputText(
                     if (!ctrlPressed) onTextChanged(it)
                 },
                 label = null,
+                leadingIcon = {
+                    //todo add it in next releases
+//                    androidx.compose.material3.Icon(
+//                        imageVector = Icons.Outlined.AddCircle,
+//                        tint = ApplicationTheme.colors.appbarIconsColor,
+//                        modifier = Modifier
+//                            .clickable(
+//                                onClick = { }
+//                            )
+//                            .padding(horizontal = 12.dp, vertical = 16.dp)
+//                            .height(24.dp),
+//                        contentDescription = null
+//                    )
+                },
                 placeholder = {
                     Text(
                         text = "Ask me anything",
@@ -191,7 +216,9 @@ private fun UserInputText(
                         when (it.key) {
                             Key.Enter -> {
                                 if (it.type == KeyEventType.KeyDown && ctrlPressed) {
-                                    onMessageSent()
+                                    if (isMessageIdCorrect(textFieldValue.text)) {
+                                        onMessageSent()
+                                    }
                                     true
                                 } else false
                             }
@@ -231,22 +258,28 @@ private fun UserInputText(
             )
 
             IconButton(onClick = {
-                if (textFieldValue.text.isNotEmpty() && textFieldValue.text.isNotBlank())
+                if (isMessageIdCorrect(textFieldValue.text)) {
                     onMessageSent.invoke()
+                }
             }) {
                 Icon(
                     Icons.Filled.Send,
                     null,
                     modifier = Modifier.size(26.dp),
-                    tint = if (textFieldValue.text.isEmpty())
-                        ApplicationTheme.colors.userInputSendDisableButtonColor
+                    tint = if (isMessageIdCorrect(textFieldValue.text))
+                        ApplicationTheme.colors.userInputSendEnableButtonColor
                     else
-                        ApplicationTheme.colors.userInputSendEnableButtonColor,
+                        ApplicationTheme.colors.userInputSendDisableButtonColor
                 )
             }
         }
     }
 }
+
+private fun isMessageIdCorrect(message: String): Boolean =
+    message.isNotBlank() && message.isNotEmpty() && message.length >= MIN_LENGTH_MESSAGE
+
+private const val MIN_LENGTH_MESSAGE = 2
 
 enum class InputSelector {
     NONE,

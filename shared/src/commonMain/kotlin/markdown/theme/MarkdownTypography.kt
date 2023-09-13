@@ -7,6 +7,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import themes.ApplicationTheme
 
 val LocalMarkdownTypography = compositionLocalOf<MarkdownTypography> {
     error("No local MarkdownTypography")
@@ -50,7 +51,7 @@ fun markdownTypography(
 ): MarkdownTypography = DefaultMarkdownTypography(
     h1 = h1, h2 = h2, h3 = h3, h4 = h4, h5 = h5, h6 = h6,
     text = text, quote = quote, code = code, paragraph = paragraph,
-    ordered = ordered, bullet = bullet, list = list
+    ordered = ApplicationTheme.typography.bodyRegular, bullet = bullet, list = list
 )
 
 @Immutable

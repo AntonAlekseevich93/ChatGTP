@@ -26,8 +26,10 @@ fun MainAppBar(
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     themeState: AppTheme,
+    showBackButton: Boolean,
+    backButtonListener: () -> Unit,
     themeSwitcherListener: () -> Unit,
-    deleteApiKeysListener: () -> Unit
+    deleteApiKeysListener: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     var apiKeysAlertDialogState by remember { mutableStateOf(false) }
@@ -61,6 +63,8 @@ fun MainAppBar(
                 )
             }
         },
+        showBackButton = showBackButton,
+        backButtonListener = backButtonListener,
         actions = {
             // Theme icon
             Icon(
@@ -70,7 +74,7 @@ fun MainAppBar(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
-                        onClick = {themeSwitcherDialogState = true}
+                        onClick = { themeSwitcherDialogState = true }
                     )
                     .padding(horizontal = 12.dp, vertical = 16.dp)
                     .height(24.dp),
