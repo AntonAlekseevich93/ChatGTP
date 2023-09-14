@@ -44,12 +44,22 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.getSelectedText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import composables.input.RussianKeys.Companion.KEY_A
+import composables.input.RussianKeys.Companion.KEY_C
+import composables.input.RussianKeys.Companion.KEY_COMMAND
+import composables.input.RussianKeys.Companion.KEY_V
+import composables.input.RussianKeys.Companion.KEY_X
 import themes.ApplicationTheme
 import ui_state.QuoteDataUiState
 
@@ -166,7 +176,9 @@ private fun UserInputText(
     onMessageSent: () -> Unit,
 ) {
     var ctrlPressed by remember { mutableStateOf(false) }
+    var commandPressed by remember { mutableStateOf(false) }
     var lastFocusState by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
     Divider(Modifier.height(0.2.dp))
     Box(
         Modifier
@@ -213,6 +225,73 @@ private fun UserInputText(
                         lastFocusState = state.isFocused
                     }
                     .onKeyEvent {
+                        when (it.utf16CodePoint) {
+                            KEY_COMMAND -> {
+                                when (it.type) {
+                                    KeyEventType.KeyDown -> {
+                                        commandPressed = true
+                                    }
+
+                                    KeyEventType.KeyUp -> {
+                                        commandPressed = false
+                                    }
+                                }
+                            }
+                        }
+                        //copy
+                        if (it.utf16CodePoint == KEY_C && commandPressed && it.type == KeyEventType.KeyDown) {
+                            clipboardManager.setText(textFieldValue.getSelectedText())
+                            return@onKeyEvent true
+                        }
+                        //insert
+                        if (it.utf16CodePoint == KEY_V && commandPressed && it.type == KeyEventType.KeyDown) {
+                            onTextChanged(getTextToInsert(textFieldValue, clipboardManager))
+                            return@onKeyEvent true
+                        }
+                        //full selection
+                        if (it.utf16CodePoint == KEY_A && commandPressed && it.type == KeyEventType.KeyDown) {
+                            val textLength = textFieldValue.text.length
+                            if (textLength > 0) {
+                                onTextChanged(
+                                    textFieldValue.copy(
+                                        text = textFieldValue.text,
+                                        selection = TextRange(0, textLength)
+                                    )
+                                )
+                            }
+                            return@onKeyEvent true
+                        }
+                        //cut
+                        if (it.utf16CodePoint == KEY_X && commandPressed && it.type == KeyEventType.KeyDown) {
+                            val selectionText = textFieldValue.getSelectedText()
+                            clipboardManager.setText(selectionText)
+                            val selectionRange = textFieldValue.selection
+                            if (selectionRange.end == textFieldValue.text.length) {
+                                onTextChanged(
+                                    textFieldValue.copy(
+                                        text = "",
+                                        selection = TextRange(0, 0)
+                                    )
+                                )
+                            } else {
+                                val firstPart =
+                                    textFieldValue.text.substring(0, selectionRange.start)
+                                val secondPart = textFieldValue.text.substring(
+                                    selectionRange.end,
+                                    textFieldValue.text.length
+                                )
+                                onTextChanged(
+                                    textFieldValue.copy(
+                                        text = firstPart + secondPart,
+                                        selection = TextRange(firstPart.length, firstPart.length)
+                                    )
+                                )
+                            }
+                            return@onKeyEvent true
+                        }
+
+//                        println("Info ${it.utf16CodePoint} type = ${it.type} key = ${it.key}")
+
                         when (it.key) {
                             Key.Enter -> {
                                 if (it.type == KeyEventType.KeyDown && ctrlPressed) {
@@ -279,9 +358,55 @@ private fun UserInputText(
 private fun isMessageIdCorrect(message: String): Boolean =
     message.isNotBlank() && message.isNotEmpty() && message.length >= MIN_LENGTH_MESSAGE
 
+private fun getTextToInsert(
+    textFieldValue: TextFieldValue,
+    clipboardManager: ClipboardManager,
+): TextFieldValue {
+    val cursorIsEnd =
+        textFieldValue.selection.end >= textFieldValue.text.length
+    val clipboardText = clipboardManager.getText()
+    val clipboardLength = clipboardText?.length ?: 0
+
+    val newText = if (cursorIsEnd) {
+        textFieldValue.text + clipboardManager.getText()
+    } else {
+        val cursorPosition = textFieldValue.selection.end
+        val firstPart = textFieldValue.text.substring(0, cursorPosition)
+        val secondPart = textFieldValue.text.substring(
+            cursorPosition,
+            textFieldValue.text.length
+        )
+        firstPart + clipboardText + secondPart
+    }
+
+    return textFieldValue.copy(
+        text = newText,
+        selection = if (cursorIsEnd) TextRange(
+            newText.length,
+            newText.length
+        ) else {
+            TextRange(
+                textFieldValue.selection.end + clipboardLength,
+                textFieldValue.selection.end + clipboardLength
+            )
+        }
+    )
+}
+
+
 private const val MIN_LENGTH_MESSAGE = 2
 
 enum class InputSelector {
     NONE,
     PICTURE
+}
+
+class RussianKeys {
+    companion object {
+        const val KEY_V = 118
+        const val KEY_C = 99
+        const val KEY_A = 97
+        const val KEY_X = 120
+        const val KEY_COMMAND = 65535
+    }
 }
