@@ -1,6 +1,9 @@
 package data
 
 import androidx.compose.runtime.Immutable
+import com.aallam.openai.api.BetaOpenAI
+import com.aallam.openai.api.chat.ChatMessage
+import com.aallam.openai.api.chat.ChatRole
 import com.chatgpt.database.Messages
 import composables.messages.MessageType
 import database.SqlDelightDataSource.Companion.GPT_TYPE
@@ -40,4 +43,16 @@ fun Messages.toVo() = MessageVo(
     parentMessageText = parentMessageText,
     childMessageId = childMessageId
 )
+
+@OptIn(BetaOpenAI::class)
+fun MessageVo.toChatMessage(): ChatMessage? {
+    val role =
+        if (messageType == MessageType.USER) ChatRole.User else if (messageType == MessageType.GPT) ChatRole.Assistant else null
+    return if (role != null) {
+        ChatMessage(
+            role = ChatRole.User,
+            content = this.content
+        )
+    } else null
+}
 

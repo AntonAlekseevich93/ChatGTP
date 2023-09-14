@@ -19,7 +19,7 @@ import animation.SlideAnimationSecondScreen
 import composables.appbar.MainAppBar
 import composables.input.UserInput
 import composables.messages.MessagesScreen
-import composables.messages.quote.QuoteThreadScreen
+import composables.messages.quote.QuoteChatScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import platform.statusBarsPaddingMpp
@@ -41,10 +41,11 @@ internal fun ConversationContent(
     val quoteDataUiState by viewModel.commonUiState.quoteDataUiState.collectAsState()
     val showQuoteMessagesBranch by messagesState.showQuoteMessagesBranch
     val scrollStateQuoteThread = rememberLazyListState()
+    val quoteMessagesId by messagesState.quoteMessagesId
 
     Box(Modifier.fillMaxSize()) {
         SlideAnimationFirstScreen(showQuoteMessagesBranch) {
-            QuoteThreadScreen(
+            QuoteChatScreen(
                 conversationUiState = messagesState,
                 scrollState = scrollStateQuoteThread,
                 loaderIsShowing = loaderIsShowingState,
@@ -59,7 +60,7 @@ internal fun ConversationContent(
                 loaderIsShowing = loaderIsShowingState,
                 uploadDataListener = { viewModel.uploadData() },
                 quoteOpenBranchListener = { childMessageId ->
-                    viewModel.openMessagesBranch(
+                    viewModel.openQuoteScreen(
                         childMessageId
                     )
                 },
@@ -84,6 +85,12 @@ internal fun ConversationContent(
                             message = content,
                             parentMessageId = quoteDataUiState.parentMessageId
                         )
+                    } else if (showQuoteMessagesBranch) {
+                        viewModel.sendMessageWithQuote(
+                            message = content,
+                            parentMessageId = quoteMessagesId,
+                            fromQuoteScreen = true
+                        )
                     } else {
                         viewModel.sendMessage(content)
                     }
@@ -98,7 +105,7 @@ internal fun ConversationContent(
                 // navigation bar, and on-screen keyboard (IME)
                 modifier = Modifier.userInputModifier(),
                 closeQuoteListener = { viewModel.closeQuote() },
-                quoteDataUiState = quoteDataUiState
+                quoteDataUiState = quoteDataUiState,
             )
         }
         MainAppBar(

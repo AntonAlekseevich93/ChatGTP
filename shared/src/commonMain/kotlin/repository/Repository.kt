@@ -44,4 +44,6 @@ class Repository(
         dataSource.getSelectedThemeIdOrDefault()?.toInt()
 
     suspend fun getLastMessageId() = dataSource.getLastMessageId()
+
+    suspend fun getMessageById(messageId: Long) = dataSource.getMessageById(messageId)?.toVo()
 }

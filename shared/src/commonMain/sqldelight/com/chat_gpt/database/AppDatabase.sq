@@ -31,6 +31,10 @@ updateChildIdForParentMessage:
 UPDATE Messages
 SET `childMessageId`=? WHERE messageId=?;
 
+getMessageById:
+SELECT *
+FROM Messages WHERE messageId =?;
+
 insertKey:
 INSERT INTO Keys(key, modelGpt)
 VALUES(? , ?);

@@ -36,6 +36,10 @@ class ConversationUiState(
         _quoteMessagesBranch.addAll(list)
     }
 
+    fun addMessageToQuoteScreen(message: MessageVo) {
+        _quoteMessagesBranch.add(0, message)
+    }
+
     fun openQuoteMessagesBranch(clickedMessageId: Long) {
         _quoteMessagesId.value = clickedMessageId
         _showQuoteMessagesBranch.value = true

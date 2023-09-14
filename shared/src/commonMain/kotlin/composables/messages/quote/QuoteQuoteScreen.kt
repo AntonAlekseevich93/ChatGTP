@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,12 +23,13 @@ import data.MessageVo
 import themes.ApplicationTheme
 
 @Composable
-fun QuoteThreadScreen(
+fun QuoteChatScreen(
     conversationUiState: ConversationUiState,
     scrollState: LazyListState,
     loaderIsShowing: Boolean,
 ) {
-    val messages = conversationUiState.quoteMessagesBranch
+    val messages =
+        remember(key1 = conversationUiState.quoteMessagesBranch.size) { conversationUiState.quoteMessagesBranch }
     val chatModifier = Modifier
         .padding(top = 50.dp)
         .fillMaxSize()

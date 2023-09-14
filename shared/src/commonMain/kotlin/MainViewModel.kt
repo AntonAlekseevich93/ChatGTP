@@ -13,6 +13,7 @@ import data.AppScreenState
 import data.ConversationUiState
 import data.MessageVo
 import data.exampleUiState
+import data.toChatMessage
 import di.Inject.instance
 import io.ktor.client.*
 import io.ktor.client.plugins.HttpTimeout
@@ -48,7 +49,6 @@ class MainViewModel() {
         parentMessagePosition = -1
     )
     private var lastCreatedMessageID = DEFAULT_MESSAGE_ID
-    private var messagesMapForBranches: MutableMap<Long, MessageVo> = mutableMapOf()
     private var errorMessage: MessageVo? = null
     private var isLoadingMessagesFromDb = false
     val commonUiState: CommonUiState = CommonUiState()
@@ -137,7 +137,6 @@ class MainViewModel() {
                     repository.insertMessageToDb(messageVo)
                 }
                 sendGptRequest(message)
-                messagesMapForBranches[messageVo.id] = messageVo
             }
         } else if (errorMessage != null) {
             _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
@@ -152,35 +151,40 @@ class MainViewModel() {
         }
     }
 
-    fun sendMessageWithQuote(message: String, parentMessageId: Long) {
+    fun sendMessageWithQuote(
+        message: String,
+        parentMessageId: Long,
+        fromQuoteScreen: Boolean = false
+    ) {
         if (openAI != null && gptModel != null) {
             closeQuote()
             _waitingForResponseState.value = true
             val childMessageId = getNewMessageId()
-            val parentMessage =
-                _conversationUiState.value.messages.find { it.id == parentMessageId }
-            val messageVo = MessageVo(
-                id = childMessageId,
-                messageType = MessageType.USER,
-                content = message,
-                parentMessageId = parentMessageId,
-                parentMessageText = parentMessage?.content
-            )
-            _conversationUiState.value.addMessageToBeginningOfList(messageVo)
             scope.launch {
+                val parentMessage = repository.getMessageById(parentMessageId)
+                val messageVo = MessageVo(
+                    id = childMessageId,
+                    messageType = MessageType.USER,
+                    content = message,
+                    parentMessageId = parentMessageId,
+                    parentMessageText = parentMessage?.content
+                )
+                _conversationUiState.value.addMessageToBeginningOfList(messageVo)
+                if (fromQuoteScreen) {
+                    _conversationUiState.value.addMessageToQuoteScreen(messageVo)
+                }
                 launch {
                     repository.insertMessageToDb(messageVo)
                     updateChildIdForParentMessage(
                         childMessageId = childMessageId,
                         parentMessageId = parentMessageId
                     )
-
                 }
                 sendGptRequest(
                     messageRequest = message,
-                    parentMessageId = childMessageId
+                    parentMessageId = parentMessageId,
+                    fromQuoteScreen = fromQuoteScreen
                 )
-                messagesMapForBranches[messageVo.id] = messageVo
             }
         } else if (errorMessage != null) {
             _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
@@ -208,50 +212,12 @@ class MainViewModel() {
         )
     }
 
-    fun openMessagesBranch(childMessageId: Long) {
-        val messagesBranch = mutableMapOf<Long, MessageVo>()
-        var searchingKey: Long? = childMessageId
-        val parentMessage: MessageVo? = getMessageForBranch(
-            getMessageForBranch(childMessageId)?.parentMessageId
-        )
-        var lastFoundMessageId = searchingKey
-
-        //sampling up
-        while (searchingKey != null) {
-            val message = getMessageForBranch(searchingKey)
-            if (message != null) {
-                messagesBranch[searchingKey] = message
-                searchingKey = message.parentMessageId
-                lastFoundMessageId = message.id
-            } else {
-                searchingKey = null
+    fun openQuoteScreen(childMessageId: Long) {
+        scope.launch {
+            _conversationUiState.value.apply {
+                updateQuoteMessagesBranch(getSortedListMessagesForBranch(childMessageId))
+                openQuoteMessagesBranch(clickedMessageId = childMessageId)
             }
-        }
-
-        /**
-         * This is a temporary solution to how to show the very first message from the thread.
-         * If we change the logic of working with the message ID, this code will break
-         */
-        val mainParentMessage = getMessageForBranch(lastFoundMessageId?.minus(1))
-        if (mainParentMessage != null) {
-            messagesBranch[mainParentMessage.id] = mainParentMessage
-        }
-
-        searchingKey = parentMessage?.childMessageId
-
-        //sampling down
-        while (searchingKey != null) {
-            val message = getMessageForBranch(searchingKey)
-            if (message != null) {
-                messagesBranch[searchingKey] = message
-                searchingKey = message.childMessageId
-            } else {
-                searchingKey = null
-            }
-        }
-        _conversationUiState.value.apply {
-            updateQuoteMessagesBranch(messagesBranch.values.sortedByDescending { it.id })
-            openQuoteMessagesBranch(clickedMessageId = childMessageId)
         }
     }
 
@@ -275,7 +241,6 @@ class MainViewModel() {
                         withContext(this.coroutineContext) {
                             _conversationUiState.value.addMessage(message)
                         }
-                        messagesMapForBranches[message.id] = message
                     }
                     isLoadingMessagesFromDb = false
                 }
@@ -283,28 +248,29 @@ class MainViewModel() {
         }
     }
 
-    private fun getMessageForBranch(messageId: Long?): MessageVo? {
-        return if (messageId != null && messagesMapForBranches.containsKey(messageId)) messagesMapForBranches[messageId]
-        else null
-    }
-
     @OptIn(BetaOpenAI::class)
     private suspend fun sendGptRequest(
         messageRequest: String,
         parentMessageId: Long? = null,
+        fromQuoteScreen: Boolean = false
     ) {
         openAI?.let { openAI ->
-            val chatCompletionRequest = ChatCompletionRequest(
-                model = modelId,
-                messages = listOf(
-                    ChatMessage(
-                        role = ChatRole.User,
-                        content = messageRequest
+            val chatCompletionRequest = if (parentMessageId == null) {
+                ChatCompletionRequest(
+                    model = modelId,
+                    messages = listOf(
+                        ChatMessage(
+                            role = ChatRole.User,
+                            content = messageRequest
+                        )
                     )
                 )
-            )
-
-            //todo здесь нужно отправлять не один запрос а пачку messages если parentMessageId not null
+            } else {
+                getMessageQuotesRequestModel(
+                    parentMessageId = parentMessageId,
+                    lastUserMessage = messageRequest
+                )
+            }
             try {
                 val completion: ChatCompletion = openAI.chatCompletion(chatCompletionRequest)
                 completion.choices.forEach { chatChoice ->
@@ -318,9 +284,11 @@ class MainViewModel() {
                             parentMessageText = if (parentMessageId != null) messageRequest else null
                         )
                         _conversationUiState.value.addMessageToBeginningOfList(message)
+                        if (fromQuoteScreen) {
+                            _conversationUiState.value.addMessageToQuoteScreen(message)
+                        }
                         repository.insertMessageToDb(message)
                         sendNotification(message = content)
-                        messagesMapForBranches[message.id] = message
                         if (parentMessageId != null) {
                             updateChildIdForParentMessage(
                                 childMessageId = gptMessageId,
@@ -336,10 +304,9 @@ class MainViewModel() {
                     content = "ОШИБКА: ${e.message}"
                 )
                 _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
+            } finally {
+                _waitingForResponseState.value = false
             }
-            _waitingForResponseState.value = false
-
-
         }
     }
 
@@ -357,7 +324,6 @@ class MainViewModel() {
                     withContext(this.coroutineContext) {
                         _conversationUiState.value.addMessageToBeginningOfList(message)
                     }
-                    messagesMapForBranches[message.id] = message
                 }
             }
         }
@@ -430,6 +396,75 @@ class MainViewModel() {
     private fun getNewMessageId(): Long {
         lastCreatedMessageID += 1
         return lastCreatedMessageID
+    }
+
+    private suspend fun getMessageForBranch(messageId: Long?): MessageVo? {
+        return if (messageId != null) {
+            repository.getMessageById(messageId)
+        } else null
+    }
+
+    private suspend fun getSortedListMessagesForBranch(childMessageId: Long): List<MessageVo> {
+        val messagesBranch = mutableMapOf<Long, MessageVo>()
+        var searchingKey: Long? = childMessageId
+        val parentMessage: MessageVo? = getMessageForBranch(
+            getMessageForBranch(childMessageId)?.parentMessageId
+        )
+        var lastFoundMessageId = searchingKey
+
+        //sampling up
+        while (searchingKey != null) {
+            val message = getMessageForBranch(searchingKey)
+            if (message != null) {
+                messagesBranch[searchingKey] = message
+                searchingKey = message.parentMessageId
+                lastFoundMessageId = message.id
+            } else {
+                searchingKey = null
+            }
+        }
+
+        /**
+         * This is a temporary solution to how to show the very first message from the thread.
+         * If we change the logic of working with the message ID, this code will break
+         */
+        val mainParentMessage = getMessageForBranch(lastFoundMessageId?.minus(1))
+        if (mainParentMessage != null) {
+            messagesBranch[mainParentMessage.id] = mainParentMessage
+        }
+
+        searchingKey = parentMessage?.childMessageId
+
+        //sampling down
+        while (searchingKey != null) {
+            val message = getMessageForBranch(searchingKey)
+            if (message != null) {
+                messagesBranch[searchingKey] = message
+                searchingKey = message.childMessageId
+            } else {
+                searchingKey = null
+            }
+        }
+
+        return messagesBranch.values.sortedByDescending { it.id }
+    }
+
+    @OptIn(BetaOpenAI::class)
+    private suspend fun getMessageQuotesRequestModel(
+        parentMessageId: Long,
+        lastUserMessage: String
+    ): ChatCompletionRequest {
+        val lastMessage = ChatMessage(
+            role = ChatRole.User,
+            content = lastUserMessage
+        )
+        val listMessages = getSortedListMessagesForBranch(parentMessageId)
+            .mapNotNull { it.toChatMessage() }.reversed().toMutableList()
+        listMessages.add(lastMessage)
+        return ChatCompletionRequest(
+            model = modelId,
+            messages = listMessages
+        )
     }
 
     companion object {
