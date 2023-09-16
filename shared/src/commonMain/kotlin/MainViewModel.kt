@@ -496,8 +496,18 @@ class MainViewModel() {
                 repository.deleteAllMessages()
             }
 
-            COMMAND_DELETE_MESSAGES -> {
+            COMMAND_DELETE_ALL_MESSAGES -> {
                 repository.deleteAllMessages()
+            }
+
+            else -> {
+                _conversationUiState.value.addMessageToBeginningOfList(
+                    MessageVo(
+                        id = -1,
+                        messageType = MessageType.SYSTEM,
+                        content = "Command not found"
+                    )
+                )
             }
         }
     }
@@ -509,7 +519,7 @@ class MainViewModel() {
         private const val MESSAGES_ID_OFFSET = 15L
         private const val COMMAND_SIGN = '$'
         private const val COMMAND_DELETE_ALL = "\$delete all"
-        private const val COMMAND_DELETE_MESSAGES = "\$delete messages"
+        private const val COMMAND_DELETE_ALL_MESSAGES = "\$delete all messages"
         const val DEFAULT_MESSAGE_ID = -1L
     }
 }

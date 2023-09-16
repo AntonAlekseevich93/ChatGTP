@@ -73,7 +73,7 @@ fun GptQuoteBlock(
                     style = ApplicationTheme.typography.footnoteRegular,
                 )
                 Text(
-                    text = quoteMessageText,
+                    text = quoteMessageText.removeNewlineCharacter(),
                     color = ApplicationTheme.colors.quoteTextColor,
                     style = ApplicationTheme.typography.footnoteRegular,
                     maxLines = 1,
@@ -129,7 +129,7 @@ fun UserQuoteBlock(
                     style = ApplicationTheme.typography.footnoteRegular,
                 )
                 Text(
-                    text = quoteMessageText,
+                    text = quoteMessageText.removeNewlineCharacter(),
                     color = ApplicationTheme.colors.quoteTextColor,
                     style = ApplicationTheme.typography.footnoteRegular,
                     maxLines = 1,
@@ -139,3 +139,5 @@ fun UserQuoteBlock(
         }
     }
 }
+
+private fun String.removeNewlineCharacter(): String = this.replace("\n", "")
