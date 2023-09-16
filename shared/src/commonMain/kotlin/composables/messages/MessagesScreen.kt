@@ -35,13 +35,17 @@ fun MessagesScreen(
 ) {
     val messages = conversationUiState.messages
     val chatModifier = Modifier
-        .padding(top = 50.dp)
         .fillMaxSize()
         .background(ApplicationTheme.colors.chatBackgroundColor)
 
     LazyColumn(
         reverseLayout = true,
-        contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 20.dp, bottom = 90.dp),
+        contentPadding = PaddingValues(
+            start = 10.dp,
+            end = 10.dp,
+            top = 20.dp,
+            bottom = 20.dp,
+        ),
         modifier = if (quoteDataUiState.showingQuote) chatModifier.padding(bottom = 32.dp) else chatModifier,
         state = scrollState
     ) {

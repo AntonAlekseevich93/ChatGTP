@@ -12,7 +12,6 @@ import org.intellij.markdown.ast.ASTNode
 internal fun MarkdownParagraph(
     content: String,
     node: ASTNode,
-
     style: TextStyle = LocalMarkdownTypography.current.paragraph,
 ) {
     val styledText = buildAnnotatedString {
