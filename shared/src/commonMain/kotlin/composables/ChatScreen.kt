@@ -2,18 +2,17 @@ package composables
 
 import MainViewModel
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import animation.SlideAnimationFirstScreen
 import animation.SlideAnimationSecondScreen
 import composables.appbar.MainAppBar
@@ -42,42 +41,22 @@ internal fun ConversationContent(
     val showQuoteMessagesBranch by messagesState.showQuoteMessagesBranch
     val scrollStateQuoteThread = rememberLazyListState()
     val quoteMessagesId by messagesState.quoteMessagesId
-
-    Box(Modifier.fillMaxSize()) {
-        SlideAnimationFirstScreen(showQuoteMessagesBranch) {
-            QuoteChatScreen(
-                conversationUiState = messagesState,
-                scrollState = scrollStateQuoteThread,
-                loaderIsShowing = loaderIsShowingState,
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            MainAppBar(
+                appBarTitle = messagesState.appBarTitle,
+                scrollBehavior = scrollBehavior,
+                keyList = keyList,
+                themeState = themeState,
+                // Use statusBarsPadding() to move the app bar content below the status bar
+                modifier = Modifier.statusBarsPaddingMpp(),
+                showBackButton = showQuoteMessagesBranch,
+                backButtonListener = { viewModel.closeMessagesThread() },
+                themeSwitcherListener = { viewModel.switchTheme() },
+                deleteApiKeysListener = { viewModel.deleteApiKeys() }
             )
-        }
-
-        SlideAnimationSecondScreen(!showQuoteMessagesBranch) {
-            MessagesScreen(
-                conversationUiState = messagesState,
-                quoteDataUiState = quoteDataUiState,
-                scrollState = scrollState,
-                loaderIsShowing = loaderIsShowingState,
-                uploadDataListener = { viewModel.uploadData() },
-                quoteOpenBranchListener = { childMessageId ->
-                    viewModel.openQuoteScreen(
-                        childMessageId
-                    )
-                },
-                quoteListener = { message, position, parentMessageId ->
-                    viewModel.showQuote(
-                        message,
-                        position,
-                        parentMessageId
-                    )
-                }
-            )
-        }
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-        ) {
+        }, bottomBar = {
             UserInput(
                 onMessageSent = { content ->
                     if (quoteDataUiState.showingQuote) {
@@ -108,17 +87,38 @@ internal fun ConversationContent(
                 quoteDataUiState = quoteDataUiState,
             )
         }
-        MainAppBar(
-            appBarTitle = messagesState.appBarTitle,
-            scrollBehavior = scrollBehavior,
-            keyList = keyList,
-            themeState = themeState,
-            // Use statusBarsPadding() to move the app bar content below the status bar
-            modifier = Modifier.statusBarsPaddingMpp(),
-            showBackButton = showQuoteMessagesBranch,
-            backButtonListener = { viewModel.closeMessagesThread() },
-            themeSwitcherListener = { viewModel.switchTheme() },
-            deleteApiKeysListener = { viewModel.deleteApiKeys() }
-        )
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+            SlideAnimationFirstScreen(showQuoteMessagesBranch) {
+                QuoteChatScreen(
+                    conversationUiState = messagesState,
+                    scrollState = scrollStateQuoteThread,
+                    loaderIsShowing = loaderIsShowingState,
+                )
+            }
+
+            SlideAnimationSecondScreen(!showQuoteMessagesBranch) {
+                MessagesScreen(
+                    conversationUiState = messagesState,
+                    quoteDataUiState = quoteDataUiState,
+                    scrollState = scrollState,
+                    loaderIsShowing = loaderIsShowingState,
+                    uploadDataListener = { viewModel.uploadData() },
+                    quoteOpenBranchListener = { childMessageId ->
+                        viewModel.openQuoteScreen(
+                            childMessageId
+                        )
+                    },
+                    quoteListener = { message, position, parentMessageId ->
+                        viewModel.showQuote(
+                            message,
+                            position,
+                            parentMessageId
+                        )
+                    }
+                )
+            }
+        }
     }
 }

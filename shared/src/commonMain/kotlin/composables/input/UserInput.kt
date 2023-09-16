@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFrom
 import androidx.compose.foundation.layout.size
@@ -185,7 +186,7 @@ private fun UserInputText(
             .padding(horizontal = 4.dp)
             .padding(top = 6.dp, bottom = 6.dp)
     ) {
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             TextField(
                 value = textFieldValue,
                 onValueChange = {
@@ -216,6 +217,7 @@ private fun UserInputText(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 300.dp)
                     .padding(horizontal = 12.dp)
                     .weight(1f)
                     .onFocusChanged { state ->

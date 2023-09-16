@@ -32,7 +32,6 @@ internal fun MarkdownText(
     val uriHandler = LocalUriHandler.current
     val referenceLinkHandler = LocalReferenceLinkHandler.current
     val layoutResult = remember { mutableStateOf<TextLayoutResult?>(null) }
-
     SelectionContainer() {
         Text(
             text = content,
