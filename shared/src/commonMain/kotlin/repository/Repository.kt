@@ -46,4 +46,7 @@ class Repository(
     suspend fun getLastMessageId() = dataSource.getLastMessageId()
 
     suspend fun getMessageById(messageId: Long) = dataSource.getMessageById(messageId)?.toVo()
+    suspend fun deleteAllMessages() {
+        dataSource.deleteAllMessages()
+    }
 }

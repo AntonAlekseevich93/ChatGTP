@@ -58,6 +58,10 @@ class SqlDelightDataSource(dbDriverFactory: DbDriverFactory) {
     suspend fun getMessageById(messageId: Long): Messages? =
         dbQuery.getMessageById(messageId).executeAsOneOrNull()
 
+    suspend fun deleteAllMessages() {
+        dbQuery.removeAllMessages()
+    }
+
     companion object {
         const val USER_TYPE = 0L
         const val GPT_TYPE = 1L

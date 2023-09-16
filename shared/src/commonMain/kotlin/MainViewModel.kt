@@ -123,31 +123,37 @@ class MainViewModel() {
     }
 
     fun sendMessage(message: String) {
-        if (openAI != null && gptModel != null) {
-            _waitingForResponseState.value = true
-            val messageVo = MessageVo(
-                id = getNewMessageId(),
-                messageType = MessageType.USER,
-                content = message
-            )
-            _conversationUiState.value.addMessageToBeginningOfList(messageVo)
-
+        if (message.messageIsCommand()) {
             scope.launch {
-                launch {
-                    repository.insertMessageToDb(messageVo)
-                }
-                sendGptRequest(message)
+                executeCommand(message)
             }
-        } else if (errorMessage != null) {
-            _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
         } else {
-            _conversationUiState.value.addMessageToBeginningOfList(
-                MessageVo(
-                    id = DEFAULT_MESSAGE_ID,
-                    messageType = MessageType.SYSTEM,
-                    content = "Что-то пошло не так!\nПроверьте подключение к интернету и повторите попытку."
+            if (openAI != null && gptModel != null) {
+                _waitingForResponseState.value = true
+                val messageVo = MessageVo(
+                    id = getNewMessageId(),
+                    messageType = MessageType.USER,
+                    content = message
                 )
-            )
+                _conversationUiState.value.addMessageToBeginningOfList(messageVo)
+
+                scope.launch {
+                    launch {
+                        repository.insertMessageToDb(messageVo)
+                    }
+                    sendGptRequest(message)
+                }
+            } else if (errorMessage != null) {
+                _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
+            } else {
+                _conversationUiState.value.addMessageToBeginningOfList(
+                    MessageVo(
+                        id = DEFAULT_MESSAGE_ID,
+                        messageType = MessageType.SYSTEM,
+                        content = "Что-то пошло не так!\nПроверьте подключение к интернету и повторите попытку."
+                    )
+                )
+            }
         }
     }
 
@@ -156,38 +162,44 @@ class MainViewModel() {
         parentMessageId: Long,
         fromQuoteScreen: Boolean = false
     ) {
-        if (openAI != null && gptModel != null) {
-            closeQuote()
-            _waitingForResponseState.value = true
-            val childMessageId = getNewMessageId()
+        if (message.messageIsCommand()) {
             scope.launch {
-                val parentMessage = repository.getMessageById(parentMessageId)
-                val messageVo = MessageVo(
-                    id = childMessageId,
-                    messageType = MessageType.USER,
-                    content = message,
-                    parentMessageId = parentMessageId,
-                    parentMessageText = parentMessage?.content
-                )
-                _conversationUiState.value.addMessageToBeginningOfList(messageVo)
-                if (fromQuoteScreen) {
-                    _conversationUiState.value.addMessageToQuoteScreen(messageVo)
-                }
-                launch {
-                    repository.insertMessageToDb(messageVo)
-                    updateChildIdForParentMessage(
-                        childMessageId = childMessageId,
-                        parentMessageId = parentMessageId
+                executeCommand(message)
+            }
+        } else {
+            if (openAI != null && gptModel != null) {
+                closeQuote()
+                _waitingForResponseState.value = true
+                val childMessageId = getNewMessageId()
+                scope.launch {
+                    val parentMessage = repository.getMessageById(parentMessageId)
+                    val messageVo = MessageVo(
+                        id = childMessageId,
+                        messageType = MessageType.USER,
+                        content = message,
+                        parentMessageId = parentMessageId,
+                        parentMessageText = parentMessage?.content
+                    )
+                    _conversationUiState.value.addMessageToBeginningOfList(messageVo)
+                    if (fromQuoteScreen) {
+                        _conversationUiState.value.addMessageToQuoteScreen(messageVo)
+                    }
+                    launch {
+                        repository.insertMessageToDb(messageVo)
+                        updateChildIdForParentMessage(
+                            childMessageId = childMessageId,
+                            parentMessageId = parentMessageId
+                        )
+                    }
+                    sendGptRequest(
+                        messageRequest = message,
+                        parentMessageId = childMessageId, //it`s correct
+                        fromQuoteScreen = fromQuoteScreen
                     )
                 }
-                sendGptRequest(
-                    messageRequest = message,
-                    parentMessageId = parentMessageId,
-                    fromQuoteScreen = fromQuoteScreen
-                )
+            } else if (errorMessage != null) {
+                _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
             }
-        } else if (errorMessage != null) {
-            _conversationUiState.value.addMessageToBeginningOfList(errorMessage!!)
         }
     }
 
@@ -229,20 +241,24 @@ class MainViewModel() {
         if (!isLoadingMessagesFromDb) {
             isLoadingMessagesFromDb = true
             scope.launch {
-                val lastItem =
-                    _conversationUiState.value.messages.last { it.messageType != MessageType.SYSTEM }
-                if (lastItem.id != FIRST_MESSAGE_ID) {
-                    val messages =
-                        repository.getMessagesFromIdToId(
-                            fromId = lastItem.id - SHIFT_ID_BY_ONE,
-                            toId = lastItem.id - MESSAGES_ID_OFFSET
-                        ).reversed()
-                    messages.forEach { message ->
-                        withContext(this.coroutineContext) {
-                            _conversationUiState.value.addMessage(message)
+                try {
+                    val lastItem =
+                        _conversationUiState.value.messages.last { it.messageType != MessageType.SYSTEM }
+                    if (lastItem.id != FIRST_MESSAGE_ID) {
+                        val messages =
+                            repository.getMessagesFromIdToId(
+                                fromId = lastItem.id - SHIFT_ID_BY_ONE,
+                                toId = lastItem.id - MESSAGES_ID_OFFSET
+                            ).reversed()
+                        messages.forEach { message ->
+                            withContext(this.coroutineContext) {
+                                _conversationUiState.value.addMessage(message)
+                            }
                         }
+                        isLoadingMessagesFromDb = false
                     }
-                    isLoadingMessagesFromDb = false
+                } catch (_: Exception) {
+                    //nop
                 }
             }
         }
@@ -467,11 +483,33 @@ class MainViewModel() {
         )
     }
 
+    private fun String.messageIsCommand(): Boolean {
+        return if (this.isNotEmpty()) {
+            this.first() == COMMAND_SIGN
+        } else false
+    }
+
+    private suspend fun executeCommand(command: String) {
+        when (command) {
+            COMMAND_DELETE_ALL -> {
+                deleteApiKeys()
+                repository.deleteAllMessages()
+            }
+
+            COMMAND_DELETE_MESSAGES -> {
+                repository.deleteAllMessages()
+            }
+        }
+    }
+
     companion object {
         private const val MODEL_GPT = "gpt-4"
         private const val FIRST_MESSAGE_ID = 0L
         private const val SHIFT_ID_BY_ONE = 1L
         private const val MESSAGES_ID_OFFSET = 15L
+        private const val COMMAND_SIGN = '$'
+        private const val COMMAND_DELETE_ALL = "\$delete all"
+        private const val COMMAND_DELETE_MESSAGES = "\$delete messages"
         const val DEFAULT_MESSAGE_ID = -1L
     }
 }
