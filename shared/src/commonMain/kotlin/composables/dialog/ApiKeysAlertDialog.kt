@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import constants.APP_VERSION
 import themes.ApplicationTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +61,14 @@ fun ApiKeysAlertDialog(
                             )
                         }
                     }
+                }
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd){
+                    Text(
+                        text ="app version: $APP_VERSION",
+                        modifier = Modifier.padding(top = 10.dp),
+                        style = ApplicationTheme.typography.captionRegular,
+                        color = ApplicationTheme.colors.mainTextColor,
+                    )
                 }
             }
             Spacer(Modifier.padding(bottom = 24.dp))
