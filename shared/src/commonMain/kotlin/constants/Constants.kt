@@ -1,3 +1,3 @@
 package constants
 
-val APP_VERSION = "0.0.1-dev1"
+const val APP_VERSION = "0.0.1-rc1"
