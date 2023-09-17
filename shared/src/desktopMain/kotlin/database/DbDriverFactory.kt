@@ -5,11 +5,12 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import platform.PlatformConfiguration
 import sqldelight.com.chat_gpt.database.AppDatabase
 import java.io.File
+import constants.DB_NAME_WITH_VERSION
 import java.util.Locale
 
 actual class DbDriverFactory actual constructor(private val platformConfiguration: PlatformConfiguration) {
     actual fun createDriver(): SqlDriver {
-        val file = getCacheFolder(nameDb)
+        val file = getCacheFolder(DB_NAME_WITH_VERSION)
 //        file.delete()
         val driver: SqlDriver = JdbcSqliteDriver(url = "jdbc:sqlite:${file.absolutePath}")
         return if (file.exists()) {
