@@ -4,8 +4,6 @@ import com.chatgpt.database.Messages
 import entity.MessageDto
 import sqldelight.com.chat_gpt.database.AppDatabase
 
-const val nameDb = "gpt.db"
-
 class SqlDelightDataSource(dbDriverFactory: DbDriverFactory) {
     private val driver = dbDriverFactory.createDriver()
     private val database = AppDatabase(driver)

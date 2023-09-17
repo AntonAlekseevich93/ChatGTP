@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import constants.APP_VERSION
+import constants.DB_NAME_WITH_VERSION
 import themes.ApplicationTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,8 +71,16 @@ fun ApiKeysAlertDialog(
                         color = ApplicationTheme.colors.mainTextColor,
                     )
                 }
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd){
+                    Text(
+                        text ="db version: $DB_NAME_WITH_VERSION",
+                        modifier = Modifier.padding(top = 10.dp),
+                        style = ApplicationTheme.typography.captionRegular,
+                        color = ApplicationTheme.colors.mainTextColor,
+                    )
+                }
             }
-            Spacer(Modifier.padding(bottom = 24.dp))
+            Spacer(Modifier.padding(bottom = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(end = 16.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.End
