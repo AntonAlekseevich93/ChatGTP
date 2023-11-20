@@ -61,7 +61,7 @@ kotlin {
                 implementation("org.kodein.di:kodein-di-framework-compose:7.19.0")
                 implementation("app.cash.sqldelight:runtime:$sqlDelightVersion")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-                implementation("com.aallam.openai:openai-client:3.2.5")
+                implementation("com.aallam.openai:openai-client:3.5.1")
             }
         }
 
